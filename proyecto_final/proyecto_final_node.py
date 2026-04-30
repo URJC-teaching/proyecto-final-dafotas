@@ -1,18 +1,21 @@
 import rclpy
 from rclpy.node import Node
+from rclpy.action import ActionClient
 from geometry_msgs.msg import Vector3, Twist
 import math
 from rclpy.duration import Duration
+from hri_client.hri_client import HRIClient
+from navigation_client.navigation_client import NavigationClient
 import time
 
 from simple_hri_interfaces.srv import Speech
+from nav2_msgs.action import NavigateToPose
 
 class FinalProjectNode(Node):
     def __init__(self):
         super().__init__('final_project_node')
 
-
-        self.person_found = false
+        self.person_found = False
 
         self.attractive_sub = self.create_subscription(
             Vector3,
@@ -22,77 +25,58 @@ class FinalProjectNode(Node):
         )
 
         self.client = self.create_client(Speech, '/tts_service')
-        
 
         self.state = 'INIT'
-        # Declarar parámetros para cada waypoint
-        self.declare_parameter('nav1.x', 0.0)
-        self.declare_parameter('nav1.y', 0.0)
-        self.declare_parameter('nav2.x', 0.0)
-        self.declare_parameter('nav2.y', 0.0)
-        # Leer los waypoints desde los parámetros
-        self.waypoints = [
-            {
-                'x': self.get_parameter('nav1.x').get_parameter_value().double_value,
-                'y': self.get_parameter('nav1.y').get_parameter_value().double_value
-            },
-            {
-                'x': self.get_parameter('nav2.x').get_parameter_value().double_value,
-                'y': self.get_parameter('nav2.y').get_parameter_value().double_value
-            }
-        ]
         self.current_goal = None
         self.nav_action_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
-        self.timer = self.create_timer(1.0, self.state_machine)
+        self.timer = self.create_timer(1.0, self.control_cycle)
         self.get_logger().info('fsm_nav_node started')
 
-    def state_machine(self):
-        if self.state == 'INIT':
-            self.get_logger().info('State: INIT -> NAV1')
-            self.state = 'NAV1'
-            self.current_index = 0
-            self.send_goal(self.current_index)
-        # Las transiciones NAV1->NAV2 y NAV2->DONE se manejan en goal_response_callback
-
-    def send_goal(self, index):
-        self.nav_action_client.wait_for_server()
-        goal_msg = NavigateToPose.Goal()
-        goal_msg.pose.header.frame_id = 'map'
-        goal_msg.pose.header.stamp = self.get_clock().now().to_msg()
-        goal_msg.pose.pose.position.x = self.waypoints[index]['x']
-        goal_msg.pose.pose.position.y = self.waypoints[index]['y']
-        goal_msg.pose.pose.orientation.w = 1.0
+        self.nav_client_ = NavigationClient(self)
+        self.target_pose_ = self.nav_client_.create_pose_stamped(6.0, -2.0, 0.0)
         
-        self.get_logger().info(f'Sending goal: {self.waypoints[index]}')
-        send_goal_future = self.nav_action_client.send_goal_async(goal_msg)
-        send_goal_future.add_done_callback(self.goal_response_callback)
+        self.server_ready_ = False
+        self.goal_sent_ = False
 
-    def goal_response_callback(self, future):
-        goal_handle = future.result()
-        if not goal_handle.accepted:
-            self.get_logger().warn('Goal rejected')
+        self.get_logger().info('Aplicación de navegación iniciada (Python)')
+        
+        self.timer_ = self.create_timer(0.5, self.control_cycle)
+
+    def control_cycle(self):
+        if not self.server_ready_:
+            if self.nav_client_.wait_for_action_server(1.0):
+                self.get_logger().info('Servidor disponible, preparado para navegar')
+                self.server_ready_ = True
             return
-        
-        self.get_logger().info('Goal accepted')
-        result_future = goal_handle.get_result_async()
-        result_future.add_done_callback(self.goal_result_callback)
 
-    def goal_result_callback(self, future):
-        result = future.result().result
-        if self.state == 'NAV1':
-            self.get_logger().info('State: NAV1 -> NAV2')
-            self.state = 'NAV2'
-            self.current_index = 1
-            self.send_goal(self.current_index)
-        elif self.state == 'NAV2':
-            self.get_logger().info('State: NAV2 -> DONE')
-            self.state = 'DONE'
+        if not self.goal_sent_:
+            self.get_logger().info('Enviando objetivo de navegación...')
+            self.nav_client_.send_goal(self.target_pose_)
+            self.goal_sent_ = True
+            return
 
-        def attractive_callback(self, msg: Vector3):
-            self.attractive_vec = msg
-            if not self.person_found:
-                self.person_found = true
-            self.get_logger().debug(f'Received Attractive vector: x={msg.x:.2f}, y={msg.y:.2f}. Magnitude={math.hypot(msg.x, msg.y):.2f}. Angle={math.degrees(math.atan2(msg.y, msg.x)):.2f} deg')
+        if not self.nav_client_.is_goal_done():
+            feedback = self.nav_client_.get_feedback()
+            if feedback:
+                t_sec = feedback.navigation_time.sec + feedback.navigation_time.nanosec / 1e9
+                self.get_logger().info(
+                    f'\t-Distancia restante: {feedback.distance_remaining:.2f} m | '
+                    f'Tiempo: {t_sec:.1f} s'
+                )
+            return
+
+        if self.nav_client_.was_goal_successful():
+            self.get_logger().info('Navegación completada con éxito')
+        else:
+            self.get_logger().warn('Navegación fallida')
+
+        self.timer_.cancel()
+        self.get_logger().info('Aplicación finalizada')
+
+    def attractive_callback(self, msg: Vector3):
+        if not self.person_found:
+            self.person_found = True
+        self.get_logger().debug(f'Received Attractive vector: x={msg.x:.2f}, y={msg.y:.2f}. Magnitude={math.hypot(msg.x, msg.y):.2f}. Angle={math.degrees(math.atan2(msg.y, msg.x)):.2f} deg')
 
         
 
@@ -101,7 +85,7 @@ class FinalProjectNode(Node):
 def main(args=None):
     
     rclpy.init(args=args)
-    node = VFFControllerNode()
+    node = FinalProjectNode()
     rclpy.spin(node)
 
     
