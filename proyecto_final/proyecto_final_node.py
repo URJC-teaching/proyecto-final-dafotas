@@ -33,8 +33,9 @@ class FinalProjectNode(Node):
         self.get_logger().info('fsm_nav_node started')
 
         self.nav_client_ = NavigationClient(self)
-        self.target_pose_ = self.nav_client_.create_pose_stamped(6.0, -2.0, 0.0)
-        
+        self.target1= self.nav_client_.create_pose_stamped(6.0, -2.0, 0.0)
+        self.target2= self.nav_client_.create_pose_stamped(0.0, -2.0, 0.0)
+
         self.hri_client = HRIClient(self)
 
         self.server_ready_ = False
@@ -47,6 +48,15 @@ class FinalProjectNode(Node):
         self.timer_ = self.create_timer(0.5, self.control_cycle)
 
     def control_cycle(self):
+        if self.state == 'INIT':
+            self.state = 'NAVIGATE'
+        
+        if self.state == 'NAVIGATE':
+            if self.points_reached == 0:
+                self.target_pose_ = self.target1
+            else:
+                self.target_pose_ = self.target2
+
         if not self.server_ready_:
             if self.nav_client_.wait_for_action_server(1.0):
                 self.get_logger().info('Servidor disponible, preparado para navegar')
