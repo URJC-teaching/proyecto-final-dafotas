@@ -35,8 +35,12 @@ class FinalProjectNode(Node):
         self.nav_client_ = NavigationClient(self)
         self.target_pose_ = self.nav_client_.create_pose_stamped(6.0, -2.0, 0.0)
         
+        self.hri_client = HRIClient(self)
+
         self.server_ready_ = False
         self.goal_sent_ = False
+
+        self.points_reached = 0
 
         self.get_logger().info('Aplicación de navegación iniciada (Python)')
         
