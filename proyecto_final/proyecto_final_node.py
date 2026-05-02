@@ -15,7 +15,6 @@ class FinalProjectNode(Node):
     def __init__(self):
         super().__init__('final_project_node')
 
-        self.person_found = False
 
         self.attractive_sub = self.create_subscription(
             Vector3,
@@ -24,77 +23,106 @@ class FinalProjectNode(Node):
             10
         )
 
+        #Parametros de YOLO
+        self.person_count = 0
+        self.person_already_counted = False
+
+        #Parametros de HRI
         self.client = self.create_client(Speech, '/tts_service')
-
-        self.state = 'INIT'
-        self.current_goal = None
-        self.nav_action_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
-        self.timer = self.create_timer(1.0, self.control_cycle)
-        self.get_logger().info('fsm_nav_node started')
-
-        self.nav_client_ = NavigationClient(self)
-        self.target1= self.nav_client_.create_pose_stamped(6.0, -2.0, 0.0)
-        self.target2= self.nav_client_.create_pose_stamped(0.0, -2.0, 0.0)
-
         self.hri_client = HRIClient(self)
 
+
+        #Parametros de navegación
+        self.nav_action_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
+        self.timer = self.create_timer(1.0, self.control_cycle)
+
+        self.nav_client_ = NavigationClient(self)
+        self.target_poses_ = [
+            self.nav_client_.create_pose_stamped(6.0, -2.0, 0.0),
+            self.nav_client_.create_pose_stamped(2.0, 3.0, 1.57),
+        ]
+        self.current_goal_index = 0
         self.server_ready_ = False
         self.goal_sent_ = False
-
-        self.points_reached = 0
 
         self.get_logger().info('Aplicación de navegación iniciada (Python)')
         
         self.timer_ = self.create_timer(0.5, self.control_cycle)
-
-    def control_cycle(self):
-        if self.state == 'INIT':
-            self.state = 'NAVIGATE'
         
-        if self.state == 'NAVIGATE':
-            if self.points_reached == 0:
-                self.target_pose_ = self.target1
-            else:
-                self.target_pose_ = self.target2
+        
+        self.state = 'init'
 
-        if not self.server_ready_:
+    def control_loop(self):
+        if self.state == 'init':
             if self.nav_client_.wait_for_action_server(1.0):
                 self.get_logger().info('Servidor disponible, preparado para navegar')
                 self.server_ready_ = True
+                self.state = 'navigate' #Pasa a navegación
             return
-
-        if not self.goal_sent_:
-            self.get_logger().info('Enviando objetivo de navegación...')
-            self.nav_client_.send_goal(self.target_pose_)
-            self.goal_sent_ = True
-            return
-
-        if not self.nav_client_.is_goal_done():
-            feedback = self.nav_client_.get_feedback()
-            if feedback:
-                t_sec = feedback.navigation_time.sec + feedback.navigation_time.nanosec / 1e9
+        
+        if self.state == 'navigate':
+            # Si no se ha enviado el objetivo, lo envía
+            if not self.goal_sent_:
+                target_pose = self.target_poses_[self.current_goal_index]
                 self.get_logger().info(
-                    f'\t-Distancia restante: {feedback.distance_remaining:.2f} m | '
-                    f'Tiempo: {t_sec:.1f} s'
+                    f'Enviando objetivo {self.current_goal_index + 1} de {len(self.target_poses_)}...'
                 )
+                self.nav_client_.send_goal(target_pose)
+                self.goal_sent_ = True
+                return
+            
+            #Comprueba si el objetivo se ha alcanzado o no
+            if not self.nav_client_.is_goal_done():
+                feedback = self.nav_client_.get_feedback()
+                if feedback:
+                    t_sec = feedback.navigation_time.sec + feedback.navigation_time.nanosec / 1e9
+                    self.get_logger().info(
+                        f'\t-Distancia restante: {feedback.distance_remaining:.2f} m | '
+                        f'Tiempo: {t_sec:.1f} s'
+                    )
+                return
+            
+            # Comprueba si hay persona
+            if self.person_found == True and self.person_already_counted == False:
+                self.person_count += 1
+                self.get_logger().info(f'Persona detectada. Total: {self.person_count}')
+                self.person_already_counted = True
+
+
+            self.state = 'goal_reached'
             return
 
-        if self.nav_client_.was_goal_successful():
-            self.get_logger().info('Navegación completada con éxito')
-        else:
-            self.get_logger().warn('Navegación fallida')
+        if self.state == 'goal_reached':
+            # Si el objetivo se ha alcanzado, pasa al siguiente o finaliza
+            if self.nav_client_.was_goal_successful():
+                self.get_logger().info(
+                    f'Objetivo {self.current_goal_index_ + 1} completado con éxito'
+                )
+                self.current_goal_index_ += 1
+                if self.current_goal_index_ < len(self.target_poses_):
+                    self.goal_sent_ = False
+                    self.state_ = 'navigate'
+                    self.get_logger().info(
+                        f'Preparado para enviar objetivo {self.current_goal_index_ + 1}'
+                    )
+                    return
 
-        self.timer_.cancel()
-        self.get_logger().info('Aplicación finalizada')
+                self.get_logger().info('Todas las metas completadas con éxito')
+            else:
+                self.get_logger().warn(
+                    f'Objetivo {self.current_goal_index_ + 1} fallido'
+                )
+            self.get_logger().info(f'Total de personas detectadas durante la navegación: {self.person_count}')
+            self.timer_.cancel()
+            self.get_logger().info('Aplicación finalizada')
 
     def attractive_callback(self, msg: Vector3):
         if not self.person_found:
             self.person_found = True
-        self.get_logger().debug(f'Received Attractive vector: x={msg.x:.2f}, y={msg.y:.2f}. Magnitude={math.hypot(msg.x, msg.y):.2f}. Angle={math.degrees(math.atan2(msg.y, msg.x)):.2f} deg')
+            self.get_logger().debug(f'Received Attractive vector: x={msg.x:.2f}, y={msg.y:.2f}. Magnitude={math.hypot(msg.x, msg.y):.2f}. Angle={math.degrees(math.atan2(msg.y, msg.x)):.2f} deg')
 
         
 
-    
 
 def main(args=None):
     
