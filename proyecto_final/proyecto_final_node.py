@@ -8,9 +8,6 @@ from hri_client.hri_client import HRIClient
 from navigation_client.navigation_client import NavigationClient
 import time
 
-from simple_hri_interfaces.srv import Speech
-from nav2_msgs.action import NavigateToPose
-
 class FinalProjectNode(Node):
     def __init__(self):
         super().__init__('final_project_node')
@@ -24,16 +21,15 @@ class FinalProjectNode(Node):
         )
 
         #Parametros de YOLO
+        self.person_found = False
         self.person_count = 0
         self.person_already_counted = False
 
         #Parametros de HRI
-        self.client = self.create_client(Speech, '/tts_service')
         self.hri_client = HRIClient(self)
 
 
         #Parametros de navegación
-        self.nav_action_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
         self.timer = self.create_timer(1.0, self.control_cycle)
 
         self.nav_client_ = NavigationClient(self)
@@ -52,7 +48,7 @@ class FinalProjectNode(Node):
         
         self.state = 'init'
 
-    def control_loop(self):
+    def control_cycle(self):
         if self.state == 'init':
             if self.nav_client_.wait_for_action_server(1.0):
                 self.get_logger().info('Servidor disponible, preparado para navegar')
@@ -85,8 +81,9 @@ class FinalProjectNode(Node):
             # Comprueba si hay persona
             if self.person_found == True and self.person_already_counted == False:
                 self.person_count += 1
-                self.get_logger().info(f'Persona detectada. Total: {self.person_count}')
+                self.get_logger().info(f'Persona detectada. Total en este tramo: {self.person_count}')
                 self.person_already_counted = True
+                return
 
 
             self.state = 'goal_reached'
@@ -96,21 +93,32 @@ class FinalProjectNode(Node):
             # Si el objetivo se ha alcanzado, pasa al siguiente o finaliza
             if self.nav_client_.was_goal_successful():
                 self.get_logger().info(
-                    f'Objetivo {self.current_goal_index_ + 1} completado con éxito'
+                    f'Objetivo {self.current_goal_index + 1} completado con éxito'
                 )
-                self.current_goal_index_ += 1
-                if self.current_goal_index_ < len(self.target_poses_):
+
+                # Habla diciendo personas encontradas en este tramo
+                mensaje = f"He llegado al waypoint {self.current_goal_index + 1}. " \
+                          f"He encontrado {self.person_count} personas"
+                self.hri_client.say(mensaje)
+                self.get_logger().info(f'Robot dice: {mensaje}')
+                
+                # Resetea contador para el siguiente waypoint
+                self.person_count = 0
+                self.person_already_counted = False
+
+                self.current_goal_index += 1
+                if self.current_goal_index < len(self.target_poses_):
                     self.goal_sent_ = False
-                    self.state_ = 'navigate'
+                    self.state = 'navigate'
                     self.get_logger().info(
-                        f'Preparado para enviar objetivo {self.current_goal_index_ + 1}'
+                        f'Preparado para enviar objetivo {self.current_goal_index + 1}'
                     )
                     return
 
                 self.get_logger().info('Todas las metas completadas con éxito')
             else:
                 self.get_logger().warn(
-                    f'Objetivo {self.current_goal_index_ + 1} fallido'
+                    f'Objetivo {self.current_goal_index + 1} fallido'
                 )
             self.get_logger().info(f'Total de personas detectadas durante la navegación: {self.person_count}')
             self.timer_.cancel()
@@ -120,8 +128,6 @@ class FinalProjectNode(Node):
         if not self.person_found:
             self.person_found = True
             self.get_logger().debug(f'Received Attractive vector: x={msg.x:.2f}, y={msg.y:.2f}. Magnitude={math.hypot(msg.x, msg.y):.2f}. Angle={math.degrees(math.atan2(msg.y, msg.x)):.2f} deg')
-
-        
 
 
 def main(args=None):
