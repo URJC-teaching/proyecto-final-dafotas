@@ -24,6 +24,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'proyecto_final_node = proyecto_final.proyecto_final_node:main',
+			'pf_class_detector_node = proyecto_final.pf_class_detector_node:main',
         ],
     },
 )
