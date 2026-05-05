@@ -1,8 +1,8 @@
-fsm_nav_node:
+proyecto_final_node:
   ros__parameters:
     nav1:
-      x: -1.0
-      y: 0.0
+      x: -3.97
+      y: -0.0503
     nav2:
-      x: 4.0
-      y: 0.0
+      x: 1.58
+      y: -0.85

@@ -28,15 +28,26 @@ class FinalProjectNode(Node):
         #Parametros de HRI
         self.hri_client = HRIClient(self)
 
-
+        # Declarar parámetros para cada waypoint
+        self.declare_parameter('nav1.x', 0.0)
+        self.declare_parameter('nav1.y', 0.0)
+        self.declare_parameter('nav2.x', 0.0)
+        self.declare_parameter('nav2.y', 0.0)
+        
+        self.x1 = self.get_parameter('nav1.x').get_parameter_value().double_value
+        self.y1 = self.get_parameter('nav1.y').get_parameter_value().double_value
+        self.x2 = self.get_parameter('nav2.x').get_parameter_value().double_value
+        self.y2 = self.get_parameter('nav2.y').get_parameter_value().double_value
+        
         #Parametros de navegación
         self.timer = self.create_timer(1.0, self.control_cycle)
 
         self.nav_client_ = NavigationClient(self)
         self.target_poses_ = [
-            self.nav_client_.create_pose_stamped(6.0, -2.0, 0.0),
-            self.nav_client_.create_pose_stamped(2.0, 3.0, 1.57),
+            self.nav_client_.create_pose_stamped(self.x1, self.y1, 0.0),
+            self.nav_client_.create_pose_stamped(self.x2, self.y2, 0.0),
         ]
+
         self.current_goal_index = 0
         self.server_ready_ = False
         self.goal_sent_ = False
@@ -99,7 +110,7 @@ class FinalProjectNode(Node):
                 # Habla diciendo personas encontradas en este tramo
                 mensaje = f"He llegado al waypoint {self.current_goal_index + 1}. " \
                           f"He encontrado {self.person_count} personas"
-                self.hri_client.say(mensaje)
+                self.hri_client.start_speaking(mensaje)
                 self.get_logger().info(f'Robot dice: {mensaje}')
                 
                 # Resetea contador para el siguiente waypoint
