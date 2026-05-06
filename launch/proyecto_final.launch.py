@@ -100,53 +100,53 @@ def generate_launch_description():
 
     optical_frame = DeclareLaunchArgument(
         'optical_frame',
-        default_value='base_link'
+        default_value='camera_rgb_optical_frame'
     )
 
-    include_yolo = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            PathJoinSubstitution([
-                FindPackageShare('yolo_bringup'),
-                'launch',
-                'yolo.launch.py'
-            ])
-        ),
-        launch_arguments={
-            # Modelo
-            'model': LaunchConfiguration('model'),
-            'model_type': LaunchConfiguration('model_type'),
-            'device': LaunchConfiguration('device'),
-            'threshold': LaunchConfiguration('threshold'),
-            
-            # Imagen
-            'imgsz_height': LaunchConfiguration('imgsz_height'),
-            'imgsz_width': LaunchConfiguration('imgsz_width'),
-            
-            # Topics (los más importantes para cambiar según cámara)
-            'input_image_topic': LaunchConfiguration('input_image_topic'),
-            'input_depth_topic': LaunchConfiguration('input_depth_topic'),
-            'input_depth_info_topic': LaunchConfiguration('input_depth_info_topic'),
-            
-            # Funcionalidades
-            'use_tracking': LaunchConfiguration('use_tracking'),
-            'use_3d': 'True',
-            'use_debug': LaunchConfiguration('use_debug'),
-            
-            # Namespace
-            'namespace': LaunchConfiguration('namespace'),
-        }.items()
-     )
-    
-    include_yolo_3d = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            PathJoinSubstitution([
-                FindPackageShare('camera'),
-                'launch',
-                'yolo_detection3d.launch.py'
-            ])
-        )
-     )
-    
+    #include_yolo = IncludeLaunchDescription(
+    #    PythonLaunchDescriptionSource(
+    #        PathJoinSubstitution([
+    #            FindPackageShare('yolo_bringup'),
+    #            'launch',
+    #            'yolo.launch.py'
+    #        ])
+    #    ),
+    #    launch_arguments={
+    #        # Modelo
+    #        'model': LaunchConfiguration('model'),
+    #        'model_type': LaunchConfiguration('model_type'),
+    #        'device': LaunchConfiguration('device'),
+    #        'threshold': LaunchConfiguration('threshold'),
+    #        
+    #        # Imagen
+    #        'imgsz_height': LaunchConfiguration('imgsz_height'),
+    #        'imgsz_width': LaunchConfiguration('imgsz_width'),
+    #        
+    #        # Topics (los más importantes para cambiar según cámara)
+    #        'input_image_topic': LaunchConfiguration('input_image_topic'),
+    #        'input_depth_topic': LaunchConfiguration('input_depth_topic'),
+    #        'input_depth_info_topic': LaunchConfiguration('input_depth_info_topic'),
+    #        
+    #        # Funcionalidades
+    #        'use_tracking': LaunchConfiguration('use_tracking'),
+    #        'use_3d': 'True',
+    #        'use_debug': LaunchConfiguration('use_debug'),
+    #        
+    #        # Namespace
+    #        'namespace': LaunchConfiguration('namespace'),
+    #    }.items()
+    # )
+    #
+    #include_yolo_3d = IncludeLaunchDescription(
+    #    PythonLaunchDescriptionSource(
+    #        PathJoinSubstitution([
+    #            FindPackageShare('camera'),
+    #            'launch',
+    #            'yolo_detection3d.launch.py'
+    #        ])
+    #    )
+    # )
+    #
     proyecto_final_node = Node(
 		package='proyecto_final',
 		executable='proyecto_final_node',
@@ -155,18 +155,18 @@ def generate_launch_description():
 		remappings=[]
 	 )
     
-    pf_class_detector_node = Node(
-		package='proyecto_final',
-		executable='pf_class_detector_node',
-		name='pf_class_detector_node',
-		parameters=[{
-			'target_class': LaunchConfiguration('target_class'),
-			'base_frame': LaunchConfiguration('base_frame')
-		}],
-		remappings=[
-			('/input_detection_3d', '/yolo/detections_3d')
-		]
-	 )
+    #pf_class_detector_node = Node(
+	#	package='proyecto_final',
+	#	executable='pf_class_detector_node',
+	#	name='pf_class_detector_node',
+	#	parameters=[{
+	#		'target_class': LaunchConfiguration('target_class'),
+	#		'base_frame': LaunchConfiguration('base_frame')
+	#	}],
+	#	remappings=[
+	#		('/input_detection_3d', '/yolo/detections_3d')
+	#	]
+	# )
     
     return LaunchDescription([
         #Argumentos globales
@@ -188,10 +188,10 @@ def generate_launch_description():
         optical_frame,
         
         #Launchers
-        include_yolo,
-        include_yolo_3d,
+        #include_yolo,
+        #include_yolo_3d,
         
 		#Nodos
 		proyecto_final_node,
-		pf_class_detector_node
+		#pf_class_detector_node
     ])

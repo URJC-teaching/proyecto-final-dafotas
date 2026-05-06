@@ -13,12 +13,12 @@ class FinalProjectNode(Node):
         super().__init__('final_project_node')
 
 
-        self.person_sub = self.create_subscription(
-            Vector3,
-            'person_detected',
-            self.person_callback,
-            10
-        )
+        #self.person_sub = self.create_subscription(
+        #    Vector3,
+        #    'person_detected',
+        #    self.person_callback,
+        #    10
+        #)
 
         #Parametros de YOLO
         self.person_found = False
@@ -26,7 +26,7 @@ class FinalProjectNode(Node):
         self.person_already_counted = False
 
         #Parametros de HRI
-        self.hri_client = HRIClient(self)
+        # self.hri_client = HRIClient(self)
 
         # Declarar parámetros para cada waypoint
         self.declare_parameter('nav1.x', 0.0)
@@ -110,7 +110,7 @@ class FinalProjectNode(Node):
                 # Habla diciendo personas encontradas en este tramo
                 mensaje = f"He llegado al waypoint {self.current_goal_index + 1}. " \
                           f"He encontrado {self.person_count} personas"
-                self.hri_client.start_speaking(mensaje)
+                # self.hri_client.start_speaking(mensaje)
                 self.get_logger().info(f'Robot dice: {mensaje}')
                 
                 # Resetea contador para el siguiente waypoint
@@ -134,11 +134,11 @@ class FinalProjectNode(Node):
             self.get_logger().info(f'Total de personas detectadas durante la navegación: {self.person_count}')
             self.timer_.cancel()
             self.get_logger().info('Aplicación finalizada')
-
-    def person_callback(self, msg: bool):
-        if not self.person_found:
-            self.person_found = True
-            self.get_logger().debug(f'Received Person Detected message: {msg}')
+#
+    #def person_callback(self, msg: bool):
+    #    if not self.person_found:
+    #        self.person_found = True
+    #        self.get_logger().debug(f'Received Person Detected message: {msg}')
 
 
 def main(args=None):
