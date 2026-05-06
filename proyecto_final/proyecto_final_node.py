@@ -13,20 +13,21 @@ class FinalProjectNode(Node):
         super().__init__('final_project_node')
 
 
-        #self.person_sub = self.create_subscription(
-        #    Vector3,
-        #    'person_detected',
-        #    self.person_callback,
-        #    10
-        #)
+        self.person_sub = self.create_subscription(
+            Vector3,
+            'person_detected',
+            self.person_callback,
+            10
+        )
 
         #Parametros de YOLO
         self.person_found = False
         self.person_count = 0
         self.person_already_counted = False
+        self.wait_until = 0.0
 
         #Parametros de HRI
-        # self.hri_client = HRIClient(self)
+        self.hri_client = HRIClient(self)
 
         # Declarar parámetros para cada waypoint
         self.declare_parameter('nav1.x', 0.0)
@@ -54,17 +55,19 @@ class FinalProjectNode(Node):
 
         self.get_logger().info('Aplicación de navegación iniciada (Python)')
         
-        self.timer_ = self.create_timer(0.5, self.control_cycle)
-        
         
         self.state = 'init'
 
     def control_cycle(self):
+
+        if time.time() < self.wait_until:
+            return
+
         if self.state == 'init':
             if self.nav_client_.wait_for_action_server(1.0):
                 self.get_logger().info('Servidor disponible, preparado para navegar')
                 self.server_ready_ = True
-                self.state = 'navigate' #Pasa a navegación
+                self.state = 'navigate'
             return
         
         if self.state == 'navigate':
@@ -78,6 +81,15 @@ class FinalProjectNode(Node):
                 self.goal_sent_ = True
                 return
             
+
+            # Comprueba si hay persona
+            if self.person_found == True and self.person_already_counted == False:
+                self.person_count += 1
+                self.get_logger().info(f'Persona detectada. Total en este tramo: {self.person_count}')
+                self.person_already_counted = True
+                self.person_found = False
+                return
+
             #Comprueba si el objetivo se ha alcanzado o no
             if not self.nav_client_.is_goal_done():
                 feedback = self.nav_client_.get_feedback()
@@ -89,56 +101,70 @@ class FinalProjectNode(Node):
                     )
                 return
             
-            # Comprueba si hay persona
-            if self.person_found == True and self.person_already_counted == False:
-                self.person_count += 1
-                self.get_logger().info(f'Persona detectada. Total en este tramo: {self.person_count}')
-                self.person_already_counted = True
-                return
-
-
             self.state = 'goal_reached'
             return
 
         if self.state == 'goal_reached':
-            # Si el objetivo se ha alcanzado, pasa al siguiente o finaliza
+            # Si el objetivo se ha alcanzado, pasa a espera para hablar
             if self.nav_client_.was_goal_successful():
                 self.get_logger().info(
                     f'Objetivo {self.current_goal_index + 1} completado con éxito'
                 )
 
                 # Habla diciendo personas encontradas en este tramo
-                mensaje = f"He llegado al waypoint {self.current_goal_index + 1}. " \
-                          f"He encontrado {self.person_count} personas"
-                # self.hri_client.start_speaking(mensaje)
-                self.get_logger().info(f'Robot dice: {mensaje}')
+                num_wp = self.current_goal_index + 1
+                wp_letras = self.numero_a_texto(num_wp)
+                p_letras = self.numero_a_texto(self.person_count)
                 
-                # Resetea contador para el siguiente waypoint
+                if num_wp == 1:
+                    mensaje = f"He llegado al waypoint {wp_letras}. He visto {p_letras} personas"
+                else:
+                    mensaje = f"Ya estoy en el waypoint {wp_letras}. El total de personas es {p_letras}"
+                self.hri_client.start_speaking(mensaje)
+                self.wait_until = time.time() + 8.0
+
+                self.get_logger().info(f'Robot dice: {mensaje}')
+
+                self.state = 'waiting_after_goal'
+            else:
+                self.get_logger().warn(f'Objetivo {self.current_goal_index + 1} fallido')
+                self.goal_sent_ = False
+                self.state = 'navigate'
+            return
+
+        if self.state == 'waiting_after_goal':
+            # Para time.time() >= self.wait_until (tiempo cumplido para que hable)
+            self.current_goal_index += 1
+
+            if self.current_goal_index < len(self.target_poses_):
                 self.person_count = 0
                 self.person_already_counted = False
-
-                self.current_goal_index += 1
-                if self.current_goal_index < len(self.target_poses_):
-                    self.goal_sent_ = False
-                    self.state = 'navigate'
-                    self.get_logger().info(
-                        f'Preparado para enviar objetivo {self.current_goal_index + 1}'
-                    )
-                    return
-
-                self.get_logger().info('Todas las metas completadas con éxito')
+                self.goal_sent_ = False
+                self.state = 'navigate'
+                self.get_logger().info(f'Preparando siguiente objetivo: {self.current_goal_index + 1}')
             else:
-                self.get_logger().warn(
-                    f'Objetivo {self.current_goal_index + 1} fallido'
-                )
+                self.state = 'finished'
+                self.wait_until = time.time() + 5.0
+            return
+
+        if self.state == 'finished':
+            self.get_logger().info('Misión finalizada')
+            self.timer.cancel()
             self.get_logger().info(f'Total de personas detectadas durante la navegación: {self.person_count}')
-            self.timer_.cancel()
             self.get_logger().info('Aplicación finalizada')
-#
-    #def person_callback(self, msg: bool):
-    #    if not self.person_found:
-    #        self.person_found = True
-    #        self.get_logger().debug(f'Received Person Detected message: {msg}')
+
+    def person_callback(self, msg: bool):
+        if not self.person_found:
+            self.person_found = True
+            self.get_logger().debug(f'Received Person Detected message: {msg}')
+
+    # Si n > 9, se intenta como string por lo menos, no se omite el número
+    def numero_a_texto(self, n):
+        numeros_letras = {
+            0: "cero", 1: "una", 2: "dos", 3: "tres", 4: "cuatro", 
+            5: "cinco", 6: "seis", 7: "siete", 8: "ocho", 9: "nueve"
+        }
+        return numeros_letras.get(n, str(n)) 
 
 
 def main(args=None):
