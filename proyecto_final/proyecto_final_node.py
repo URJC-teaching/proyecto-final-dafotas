@@ -13,10 +13,10 @@ class FinalProjectNode(Node):
         super().__init__('final_project_node')
 
 
-        self.attractive_sub = self.create_subscription(
+        self.person_sub = self.create_subscription(
             Vector3,
-            'attractive_vector',
-            self.attractive_callback,
+            'person_detected',
+            self.person_callback,
             10
         )
 
@@ -135,10 +135,10 @@ class FinalProjectNode(Node):
             self.timer_.cancel()
             self.get_logger().info('Aplicación finalizada')
 
-    def attractive_callback(self, msg: Vector3):
+    def person_callback(self, msg: bool):
         if not self.person_found:
             self.person_found = True
-            self.get_logger().debug(f'Received Attractive vector: x={msg.x:.2f}, y={msg.y:.2f}. Magnitude={math.hypot(msg.x, msg.y):.2f}. Angle={math.degrees(math.atan2(msg.y, msg.x)):.2f} deg')
+            self.get_logger().debug(f'Received Person Detected message: {msg}')
 
 
 def main(args=None):
