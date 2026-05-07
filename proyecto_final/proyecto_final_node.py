@@ -23,8 +23,6 @@ class FinalProjectNode(Node):
 
         #Parametros de YOLO
         self.person_found = False
-        self.person_count = 0
-        self.person_already_counted = False
         self.wait_until = 0.0
 
         #Parametros de HRI
@@ -84,11 +82,8 @@ class FinalProjectNode(Node):
             
 
             # Comprueba si hay persona
-            if self.person_found == True and self.person_already_counted == False:
-                self.person_count += 1
-                self.get_logger().info(f'Persona detectada. Total en este tramo: {self.person_count}')
-                self.person_already_counted = True
-                self.person_found = False
+            if self.person_found == True:
+                self.get_logger().info(f'Persona detectada.') 
                 return
 
             #Comprueba si el objetivo se ha alcanzado o no
@@ -114,14 +109,13 @@ class FinalProjectNode(Node):
 
                 # Habla diciendo personas encontradas en este tramo
                 num_wp = self.current_goal_index + 1
-                wp_letras = self.numero_a_texto(num_wp)
-                p_letras = self.numero_a_texto(self.person_count)
-                
-                mensaje = "He llegado al waypoint"
+                mensaje = "He llegado al waypoint. "
+                if self.person_found:
+                    mensaje += "He visto persona."
                 # if num_wp == 1:
                     # mensaje = f"He llegado al waypoint {wp_letras}. He visto {p_letras} personas"
-                # else:
-                #     mensaje = f"Ya estoy en el waypoint {wp_letras}. El total de personas es {p_letras}"
+                else:
+                    mensaje += "No he detectado personas."
                 self.hri_client.start_speaking(mensaje)
                 self.wait_until = time.time() + 8.0
 
@@ -139,8 +133,7 @@ class FinalProjectNode(Node):
             self.current_goal_index += 1
 
             if self.current_goal_index < len(self.target_poses_):
-                self.person_count = 0
-                self.person_already_counted = False
+                self.person_found = False
                 self.goal_sent_ = False
                 self.state = 'navigate'
                 self.get_logger().info(f'Preparando siguiente objetivo: {self.current_goal_index + 1}')
@@ -153,8 +146,7 @@ class FinalProjectNode(Node):
             return
             # self.get_logger().info('Misión finalizada')
             # self.timer.cancel()
-            # self.get_logger().info(f'Total de personas detectadas durante la navegación: {self.person_count}')
-            # self.get_logger().info('Aplicación finalizada')
+            # self.get_logger().info(f'Total de personas detectadas durante la navegación            # self.get_logger().info('Aplicación finalizada')
 
     def person_callback(self, msg: Bool):
         if not self.person_found:
