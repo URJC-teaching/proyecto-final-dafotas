@@ -170,32 +170,32 @@ def generate_launch_description():
 			'base_frame': LaunchConfiguration('base_frame')
 		}],
 		remappings=[
-			('/input_detection_3d', '/yolo/detections_3d')
+			('/input_detection_3d', '/detections_3d')
 		]
 	)
     
     return LaunchDescription([
         #Argumentos globales
-        model_arg,
-        model_type_arg,
-        device_arg,
-        threshold_arg,
-        imgsz_height_arg,
-        imgsz_width_arg,
-        input_image_topic_arg,
-        input_depth_topic_arg,
-        input_depth_info_topic_arg,
-        use_tracking_arg,
-        use_3d_arg,
-        use_debug_arg,
-        namespace_arg,
+        #model_arg,
+        #model_type_arg,
+        #device_arg,
+        #threshold_arg,
+        #imgsz_height_arg,
+        #imgsz_width_arg,
+        #input_image_topic_arg,
+        #input_depth_topic_arg,
+        #input_depth_info_topic_arg,
+        #use_tracking_arg,
+        #use_3d_arg,
+        #use_debug_arg,
+        #namespace_arg,
         target_class,
         base_frame,
-        optical_frame,
+        #optical_frame,
         
         #Launchers
-        include_yolo,
-        include_yolo_3d,
+        #include_yolo,
+        #include_yolo_3d,
         
 		#Nodos
 		proyecto_final_node,

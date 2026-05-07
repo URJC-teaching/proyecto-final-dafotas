@@ -13,11 +13,8 @@
 import rclpy
 from rclpy.node import Node
 from vision_msgs.msg import Detection3DArray
-from geometry_msgs.msg import Vector3, PointStamped
 from tf2_ros import Buffer, TransformListener
-from tf2_geometry_msgs import do_transform_point
-from sensor_msgs.msg import Image
-import math
+from std_msgs.msg import Bool
 
 
 class PFClassDetectorNode(Node):
@@ -42,16 +39,17 @@ class PFClassDetectorNode(Node):
             rclpy.qos.qos_profile_sensor_data
         )
 
-        self.person_pub = self.create_publisher(bool, 'person_detected', 10)
+        self.person_pub = self.create_publisher(Bool, 'person_detected', 10)
 
     def detection_callback(self, msg: Detection3DArray):
+        self.get_logger().info("AAAAAAAAAAAAAAAAAAAAAAAA")
         if not msg.detections:
             return
 
         # Find first detection of the target class
         for detection in msg.detections:
             if detection.results and detection.results[0].hypothesis.class_id == self.target_class:
-                self.person_pub.publish(True)
+                self.person_pub.publish(Bool(data=True))
                 break
 
         

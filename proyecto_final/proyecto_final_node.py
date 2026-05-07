@@ -7,6 +7,7 @@ from rclpy.duration import Duration
 from hri_client.hri_client import HRIClient
 from navigation_client.navigation_client import NavigationClient
 import time
+from std_msgs.msg import Bool
 
 class FinalProjectNode(Node):
     def __init__(self):
@@ -14,7 +15,7 @@ class FinalProjectNode(Node):
 
 
         self.person_sub = self.create_subscription(
-            Vector3,
+            Bool,
             'person_detected',
             self.person_callback,
             10
@@ -116,10 +117,11 @@ class FinalProjectNode(Node):
                 wp_letras = self.numero_a_texto(num_wp)
                 p_letras = self.numero_a_texto(self.person_count)
                 
-                if num_wp == 1:
-                    mensaje = f"He llegado al waypoint {wp_letras}. He visto {p_letras} personas"
-                else:
-                    mensaje = f"Ya estoy en el waypoint {wp_letras}. El total de personas es {p_letras}"
+                mensaje = "He llegado al waypoint"
+                # if num_wp == 1:
+                    # mensaje = f"He llegado al waypoint {wp_letras}. He visto {p_letras} personas"
+                # else:
+                #     mensaje = f"Ya estoy en el waypoint {wp_letras}. El total de personas es {p_letras}"
                 self.hri_client.start_speaking(mensaje)
                 self.wait_until = time.time() + 8.0
 
@@ -148,14 +150,16 @@ class FinalProjectNode(Node):
             return
 
         if self.state == 'finished':
-            self.get_logger().info('Misión finalizada')
-            self.timer.cancel()
-            self.get_logger().info(f'Total de personas detectadas durante la navegación: {self.person_count}')
-            self.get_logger().info('Aplicación finalizada')
+            return
+            # self.get_logger().info('Misión finalizada')
+            # self.timer.cancel()
+            # self.get_logger().info(f'Total de personas detectadas durante la navegación: {self.person_count}')
+            # self.get_logger().info('Aplicación finalizada')
 
-    def person_callback(self, msg: bool):
+    def person_callback(self, msg: Bool):
         if not self.person_found:
             self.person_found = True
+            
             self.get_logger().debug(f'Received Person Detected message: {msg}')
 
     # Si n > 9, se intenta como string por lo menos, no se omite el número
